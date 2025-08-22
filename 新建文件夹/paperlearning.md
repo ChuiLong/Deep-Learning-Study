@@ -166,3 +166,39 @@ CBAM 由两个主要部分组成：通道注意力模块（Channel Attention Mod
 
 ![alt text](image-8.png)
 
+![alt text](image-9.png)
+
+采用一维的Pos编码
+![alt text](image-10.png)
+![alt text](image-11.png)
+![alt text](image-12.png)
+![alt text](image-13.png)
+![alt text](image-14.png)
+
+# Paper Swin Transformer
+修复了ViT模型信息缺失的问题。
+![alt text](image-15.png)
+![alt text](image-18.png)
+![alt text](image-19.png)
+![alt text](image-20.png)
+![alt text](image-21.png)
+
+Patch Patrition事实上是用于提取特征的一个卷积操作，Linear Embedding操作就是将二维数据展开成一个一维的数据。
+
+input: (1, 3, 224, 224) → 不进行图形分块
+patch partition: (1, 96, 56, 56) → 类似池化操作，聚合空间维度信息。实际的实现就是通过卷积操作进行的。作者使用了一个卷积核4*4，步长也为4的卷积核来进行。
+linear embedding: (1, 3136, 96) → 将特征图打散，通道维度仍然保留，并交换他们的位置。
+
+![alt text](image-22.png)
+
+# Paper PVTv1 PVTv2 P2T
+
+![PvTv2](image-23.png)
+![alt text](image-24.png)
+
+![alt text](image-25.png)
+
+# Paper FastViT
+
+本文的目标是做一个卷积，Attention 的低延时混合架构，因为这种架构有效地结合了 CNN 和 Transformer 的优势，在多个视觉任务上有竞争力。重点是在主流现成硬件（如擅长并行计算的 GPU）上实现计算机视觉任务的最高吞吐量。在这种情况下，计算涉及一组以 CUDA 和张量内核为计算单元的流式多处理器（SM）。计算需要频繁传输数据，并可能受到数据移动带宽的影响。因此，受计算约束的操作是数学限制的，而受内存传输约束的操作是内存限制的。它需要在二者之间取得谨慎的平衡，以最大限度地提高吞吐量。
+
