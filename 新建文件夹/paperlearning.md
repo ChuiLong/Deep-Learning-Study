@@ -1,3 +1,33 @@
+# 一些基础概念
+## 上下游任务
+在深度学习里，我们常把模型的用途分成上游任务（Upstream task）和下游任务（Downstream task）：
+
+- 上游任务：
+指模型的预训练任务，通常是为了学到通用的特征表示（representation）。
+它的目标不是直接解决某个特定业务问题，而是让模型先具备认知能力，例如看懂图片、理解语言结构。
+
+- 下游任务：
+指利用已经在上游任务中学到的表示，去解决的具体应用任务。
+下游任务通常是针对某个特定场景的具体预测、分类、检测等目标。
+
+下游任务是你真正想要模型解决的最终任务，它往往依赖上游阶段学到的知识和特征。
+
+## Cross Attention and Conv Attention
+**Cross-Attention**（交叉注意力）是 Transformer 中的一种注意力机制，但和普通 **Self-Attention**（自注意力）不同：
+
+- **Self-Attention**
+  Q、K、V（Query/Key/Value）三组向量来自**同一组输入**，模型在内部自己找相关性。
+
+- **Cross-Attention**
+  Q 来自一组向量（比如一个序列 A），
+  K、V 来自另一组向量（比如另一个序列 B）。
+  这样 Q 就能“去看”另一组的内容，从而实现跨模态、跨特征域的信息融合。
+
+**公式结构**：
+$$
+\text{Attn}(Q_A, K_B, V_B) = \text{Softmax}\left( \frac{Q_A K_B^\top}{\sqrt{d}} \right) V_B
+$$
+
 # cs230 DeepLearning
 
 ## Part Ⅳ 卷积神经网络CNN
