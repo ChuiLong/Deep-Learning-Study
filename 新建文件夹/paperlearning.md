@@ -12,7 +12,32 @@
 
 下游任务是你真正想要模型解决的最终任务，它往往依赖上游阶段学到的知识和特征。
 
-## Cross Attention and Conv Attention
+## Cross Attention and Conv Attention and Attention
+
+**注意力（Attention）** 在 Transformer 中的核心是：
+
+1. **输入**：一组序列特征（tokens）
+2. **步骤**：
+   - 用线性投影得到 $Q, K, V$
+   - 计算相似度：$\text{Score} = QK^T / \sqrt{d_k}$
+   - Softmax 得到权重 $A$
+   - 加权求和输出：$\text{Output} = A V$
+3. **特点**：
+   - 每个 token 都可以和任意 token 建立联系（全局建模）
+   - 位置信息需要额外加（positional encoding），否则感知不到相对位置
+4. **计算复杂度**：$O(n^2 \cdot d)$（序列长度平方）
+
+**在视觉任务里的问题**：
+- 图像 token 化后数量大（比如 14×14=196 个 token 或更多），$O(n^2)$ 成本高
+- 没有天然的局部性建模，容易忽略局部结构
+
+
+## 2️⃣ Conv-Attention（卷积注意力）
+**Conv-Attention** 不是一个单一定义，而是一个泛指，在 Attention 模块中引入**卷积运算**的方法，目标是：
+- 提高局部建模能力（引入 CNN 的归纳偏置）
+- 嵌入位置信息（卷积天生有空间位置信息）
+- 降低计算量（有时可以通过限制感受野）
+
 **Cross-Attention**（交叉注意力）是 Transformer 中的一种注意力机制，但和普通 **Self-Attention**（自注意力）不同：
 
 - **Self-Attention**
@@ -27,6 +52,30 @@
 $$
 \text{Attn}(Q_A, K_B, V_B) = \text{Softmax}\left( \frac{Q_A K_B^\top}{\sqrt{d}} \right) V_B
 $$
+
+## Co-Scale vs. Multi-Scal
+
+### 1️⃣ Multi-Scale（多尺度）
+**概念**
+- **Multi-Scale** 是计算机视觉里的老概念——同时利用不同空间分辨率（不同“尺度”）的特征表示。
+- 核心思想：**大尺度（低分辨率）特征图 → 捕捉全局上下文**，**小尺度（高分辨率）特征图 → 保留局部细节**，最终**融合**它们。
+- 典型实现：
+  - FPN（Feature Pyramid Network）：自上而下融合不同分辨率的特征
+  - HRNet：多分辨率分支并行计算，持续交换信息
+
+**特点**
+- 重点在**如何融合不同分辨率的特征图**
+- 融合方式可以是拼接、加法、注意力等
+
+### 2️⃣ Co-Scale（协同尺度）
+**概念（以 FasterViT 为例）**
+- **Co-Scale** 可以理解为**一种更精细、更显式的多尺度信息交互方式**，强调不同尺度分支**在处理过程中就持续交互**，而不是最后才融合。
+- “Co”表示 **同时、协同（cooperative）**：在**各个尺度分支的中间层**中通过 **Cross-Attention（跨层跨尺度注意力）** 或 **Feature Interpolation（特征插值）** 实现特征对齐和信息传递。
+- FasterViT 提出的 Co-Scale 有几种变体：
+  1. **w/o Co-Scale**：不同分辨率分支独立计算，中间不交流，最后融合
+  2. **Co-Scale w/ Direct Cross-Layer Attention**：直接用 Cross-Attention 在不同尺度间交换特征
+  3. **Co-Scale w/ Feature Interpolation**：先插值到相同尺度再交互
+
 
 # cs230 DeepLearning
 
@@ -232,3 +281,15 @@ linear embedding: (1, 3136, 96) → 将特征图打散，通道维度仍然保�
 
 本文的目标是做一个卷积，Attention 的低延时混合架构，因为这种架构有效地结合了 CNN 和 Transformer 的优势，在多个视觉任务上有竞争力。重点是在主流现成硬件（如擅长并行计算的 GPU）上实现计算机视觉任务的最高吞吐量。在这种情况下，计算涉及一组以 CUDA 和张量内核为计算单元的流式多处理器（SM）。计算需要频繁传输数据，并可能受到数据移动带宽的影响。因此，受计算约束的操作是数学限制的，而受内存传输约束的操作是内存限制的。它需要在二者之间取得谨慎的平衡，以最大限度地提高吞吐量。
 
+![alt text](image-26.png)
+![alt text](image-27.png)
+
+# Paper Co-Scale Conv-Attentional Image Transformers共尺度问题
+这篇文章首先通过数学方法证明了深度卷积可以看作是相对位置编码的一种特殊情况。
+![alt text](image-30.png)
+![alt text](image-29.png)
+将卷积相对位置编码的思想推广到一般的卷积位置编码情况。卷积相对位置编码对查询和值之间的局部基于位置的关系进行建模。与大多数图像Transformers使用的绝对位置编码类似，我们希望将位置关系直接插入到输入图像特征中，以丰富相对位置编码的效果。在每个卷积注意模块中，对输入特征X进行深度卷积，并按照标准的绝对位置编码方案(见下图下半部分)将得到的位置感知特征连接回输入特征，这类似于CPVT中条件位置编码的实现。
+
+![alt text](image-28.png)
+
+所提出的共尺度机制旨在将细到粗、粗到细和跨尺度信息引入图像Transformers。在这里，本文描述CoaT体系结构中的两种类型的构建块，即串行块和并行块，以便建模多个尺度并启用协同尺度机制。
